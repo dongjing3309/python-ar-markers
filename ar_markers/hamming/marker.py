@@ -37,12 +37,12 @@ class HammingMarker(object):
         cv2.resize(img, dsize=((MARKER_SIZE*ZOOM_RATIO, MARKER_SIZE*ZOOM_RATIO)), dst=output_img, interpolation=cv2.INTER_NEAREST)
         return output_img
 
-    def draw_contour(self, img, color=(0, 255, 0), linewidth=5):
+    def draw_contour(self, img, color=(0, 255, 0), linewidth=2):
         cv2.drawContours(img, [self.contours], -1, color, linewidth)
 
-    def highlite_marker(self, img, contour_color=(0, 255, 0), text_color=(255, 0, 0), linewidth=5):
+    def highlite_marker(self, img, contour_color=(0, 255, 255), text_color=(255, 255, 0), linewidth=2):
         self.draw_contour(img, color=contour_color, linewidth=linewidth)
-        cv2.putText(img, str(self.id), self.center, cv2.FONT_HERSHEY_SIMPLEX, 2, text_color)
+        cv2.putText(img, str(self.id), self.center, cv2.FONT_HERSHEY_DUPLEX, 1, text_color)
 
     @classmethod
     def generate(cls):
