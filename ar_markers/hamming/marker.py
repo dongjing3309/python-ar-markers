@@ -2,11 +2,11 @@ import cv2
 
 from numpy import mean, binary_repr, zeros
 from numpy.random import randint
-from scipy.ndimage import zoom
 
 from ar_markers.hamming.coding import encode, HAMMINGCODE_MARKER_POSITIONS
 
 MARKER_SIZE = 7
+ZOOM_RATIO = 50
 
 
 class HammingMarker(object):
