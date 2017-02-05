@@ -40,8 +40,12 @@ class HammingMarker(object):
     def draw_contour(self, img, color=(0, 255, 0), linewidth=2):
         cv2.drawContours(img, [self.contours], -1, color, linewidth)
 
+    def draw_origin(self, img, color=(0, 0, 255), radius=2, linewidth=3):
+        cv2.circle(img, tuple(self.contours[0][0]), radius=radius, color=color, thickness=linewidth)
+
     def highlite_marker(self, img, contour_color=(0, 255, 255), text_color=(255, 255, 0), linewidth=2):
         self.draw_contour(img, color=contour_color, linewidth=linewidth)
+        self.draw_origin(img)
         cv2.putText(img, str(self.id), self.center, cv2.FONT_HERSHEY_DUPLEX, 1, text_color)
 
     @classmethod
