@@ -32,7 +32,10 @@ class HammingMarker(object):
             if val == '1':
                 val = 255
             img[coords[0], coords[1]] = int(val)
-        return zoom(img, zoom=50, order=0)
+        # return img
+        output_img = zeros((MARKER_SIZE*ZOOM_RATIO, MARKER_SIZE*ZOOM_RATIO))
+        cv2.resize(img, dsize=((MARKER_SIZE*ZOOM_RATIO, MARKER_SIZE*ZOOM_RATIO)), dst=output_img, interpolation=cv2.INTER_NEAREST)
+        return output_img
 
     def draw_contour(self, img, color=(0, 255, 0), linewidth=5):
         cv2.drawContours(img, [self.contours], -1, color, linewidth)
