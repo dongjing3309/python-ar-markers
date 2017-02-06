@@ -17,39 +17,20 @@ ORIENTATION_MARKER_COORDINATES = [[1, 1], [1, 5], [5, 1], [5, 5]]
 WARPED_SIZE = 49
 
 
+def get_marker_pose(marker, marker_size, camK):
+    obj_points = np.array([(0,0,0), (0,marker_size,0), (marker_size,marker_size,0),\
+        (marker_size,0,0)], dtype='float32')
+    img_points = np.array([marker.contours[0][0], marker.contours[1][0], \
+        marker.contours[2][0], marker.contours[3][0]], dtype='float32')
+    return cv2.solvePnP(obj_points, img_points, camK, np.array([0,0,0,0], \
+        dtype='float32'))
+
 def rotate_contour(contour, persp_transf, rot_num):
 
     # contour_first_warpped must at wrapped origin since getPerspectiveTransform use contour
-    rot_num_con = 0
-    '''
-    # warp contour[0] by persp_transf
-    contour_first_warpped = np.dot(persp_transf, np.append(contour[0], np.array([1.0])))
-    contour_first_warpped = [contour_first_warpped[0] / contour_first_warpped[2], \
-        contour_first_warpped[1] / contour_first_warpped[2]]
-
-    # check warpped point, decide rotation number
-    warp_err_thesh = 1e-3
-
-    if fabs(contour_first_warpped[0]) < warp_err_thesh and \
-        fabs(contour_first_warpped[1] ) < warp_err_thesh:
-        rot_num_con = 0
-    elif fabs(contour_first_warpped[0]) < warp_err_thesh and \
-        fabs(contour_first_warpped[1] - (WARPED_SIZE-1)) < warp_err_thesh:
-        rot_num_con = 1
-    elif fabs(contour_first_warpped[0] - (WARPED_SIZE-1)) < warp_err_thesh and \
-        fabs(contour_first_warpped[1] - (WARPED_SIZE-1)) < warp_err_thesh:
-        rot_num_con = 2
-    elif fabs(contour_first_warpped[0] - (WARPED_SIZE-1)) < warp_err_thesh and \
-        fabs(contour_first_warpped[1]) < warp_err_thesh:
-        rot_num_con = 3
-    else:
-        raise ValueError('Warp err in rotate_contour.')
-    '''
-
-    # plus rot_num, rotate contour
     # note that get_turn_number gives conter-clock, we use clock here
     contour_list = contour.tolist();
-    for i in range(rot_num_con + (4-rot_num)):
+    for i in range(4 - rot_num):
         contour_list.insert(0, contour_list.pop())
 
     return np.array(contour_list, dtype='int32')
@@ -84,7 +65,7 @@ def validate_and_get_turn_number(marker):
     return rotation
 
 
-def detect_markers(img):
+def detect_markers(img, marker_size, camK):
     width, height, _ = img.shape
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
@@ -97,7 +78,6 @@ def detect_markers(img):
     # We only keep the long enough contours
     min_contour_length = min(width, height) / 50
     contours = [contour for contour in contours if len(contour) > min_contour_length]
-    WARPED_SIZE = 49
     canonical_marker_coords = array(((0, 0),
                                      (WARPED_SIZE - 1, 0),
                                      (WARPED_SIZE - 1, WARPED_SIZE - 1),
@@ -143,6 +123,17 @@ def detect_markers(img):
 
         # rotate corner list
         rotated_contour = rotate_contour(sorted_curve, persp_transf, turn_number)
-        markers_list.append(HammingMarker(id=marker_id, contours=rotated_contour))
+        detected_marker = HammingMarker(id=marker_id, contours=rotated_contour, size=marker_size)
+
+        # get pose and update detected marker
+        pose_results = get_marker_pose(detected_marker, detected_marker.size, camK)
+        if pose_results[0]:
+            detected_marker.rvec = pose_results[1]
+            detected_marker.tvec = pose_results[2]
+        else:
+            # cannot find pose using contours
+            continue
+
+        markers_list.append(detected_marker)
 
     return markers_list
