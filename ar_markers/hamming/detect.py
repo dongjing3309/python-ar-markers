@@ -72,8 +72,9 @@ def detect_markers(img, marker_size, camK):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     edges = cv2.Canny(gray, 50, 100)
-    cv2.imshow("edges", edges)
-    cv2.waitKey(1)
+
+    # cv2.imshow("edges", edges)
+    # cv2.waitKey(1)
 
     contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[-2:]
 
@@ -86,28 +87,24 @@ def detect_markers(img, marker_size, camK):
                                      (0, WARPED_SIZE - 1)),
                                      dtype='float32')
 
-    imgc = img.copy()
-    #cv2.drawContours(imgc, contours, -1, (0,255,0), 3)
-    for cidx in range(1, len(contours)):
-        cv2.drawContours(imgc, contours, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
-    cv2.imshow("contours", imgc)
-    cv2.waitKey(1)
+    # imgc = img.copy()
+    # #cv2.drawContours(imgc, contours, -1, (0,255,0), 3)
+    # for cidx in range(1, len(contours)):
+    #     cv2.drawContours(imgc, contours, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
+    # cv2.imshow("contours", imgc)
+    # cv2.waitKey(1)
 
     markers_list = []
-
-    ploydtct = 0
-    polydtct_counters = []
+    # polydtct_counters = []
 
     for contour in contours:
         approx_curve = cv2.approxPolyDP(contour, len(contour) * 0.05, True)
         if not (len(approx_curve) == 4 and cv2.isContourConvex(approx_curve)):
             continue
-
         sorted_curve = array(cv2.convexHull(approx_curve, clockwise=False),
                              dtype='float32')
 
-        polydtct_counters.append(cv2.convexHull(approx_curve, clockwise=False))
-        ploydtct = ploydtct + 1
+        # polydtct_counters.append(cv2.convexHull(approx_curve, clockwise=False))
 
         # wrap image
         persp_transf = cv2.getPerspectiveTransform(sorted_curve, canonical_marker_coords)
@@ -120,20 +117,27 @@ def detect_markers(img, marker_size, camK):
 
         # binary image
         _, warped_bin = cv2.threshold(warped_gray, wraped_gray_avg, 255, cv2.THRESH_BINARY)
-        
-        # reshape to one block per pixel 
-        marker = warped_bin.reshape(
-            [MARKER_SIZE, WARPED_SIZE / MARKER_SIZE, MARKER_SIZE, WARPED_SIZE / MARKER_SIZE]
-        )
-        # binary reshaped image
-        marker = marker.mean(axis=3).mean(axis=1)
-        marker[marker < 127] = 0
-        marker[marker >= 127] = 1
 
-        #cv2.imshow("bin", warped_bin)
-        #cv2.waitKey(50)
-        #cv2.imshow("warped_marker", rot90(warped_bin, k=0))
-        #cv2.waitKey(50)
+        # # reshape to one block per pixel 
+        # marker = warped_bin.reshape(
+        #     [MARKER_SIZE, WARPED_SIZE / MARKER_SIZE, MARKER_SIZE, WARPED_SIZE / MARKER_SIZE]
+        # )
+        # # binary reshaped image
+        # marker = marker.mean(axis=3).mean(axis=1)
+        # marker[marker < 127] = 0
+        # marker[marker >= 127] = 1
+
+        # get better coding from sampling not reshaping
+        marker = np.zeros((MARKER_SIZE,MARKER_SIZE))
+        for i in range(1,MARKER_SIZE):
+            for j in range(1,MARKER_SIZE):
+                if warped_bin[(i+0.5)*WARPED_SIZE/MARKER_SIZE, (j+0.5)*WARPED_SIZE/MARKER_SIZE] > 0:
+                    marker[i,j] = 1
+
+        # cv2.imshow("bin", warped_bin)
+        # cv2.waitKey(50)
+        # cv2.imshow("warped_marker", rot90(warped_bin, k=0))
+        # cv2.waitKey(50)
 
         try:
             # rotate marker by checking which corner is white
@@ -162,13 +166,10 @@ def detect_markers(img, marker_size, camK):
 
         markers_list.append(detected_marker)
 
+    # imgpoly = img.copy()
+    # for cidx in range(1, len(polydtct_counters)):
+    #     cv2.drawContours(imgpoly, polydtct_counters, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
+    # cv2.imshow("contours poly", imgpoly)
+    # cv2.waitKey(1)
 
-    imgpoly = img.copy()
-    for cidx in range(1, len(polydtct_counters)):
-        cv2.drawContours(imgpoly, polydtct_counters, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
-    cv2.imshow("contours poly", imgpoly)
-    cv2.waitKey(1)
-
-
-    print("ploydtct =", ploydtct)
     return markers_list
