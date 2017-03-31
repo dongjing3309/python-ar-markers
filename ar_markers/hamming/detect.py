@@ -88,12 +88,12 @@ def detect_markers(img, marker_size, camK):
                                      (0, WARPED_SIZE - 1)),
                                      dtype='float32')
 
-    imgc = img.copy()
-    #cv2.drawContours(imgc, contours, -1, (0,255,0), 3)
-    for cidx in range(1, len(contours)):
-        cv2.drawContours(imgc, contours, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
-    cv2.imshow("contours", imgc)
-    cv2.waitKey(1)
+    # imgc = img.copy()
+    # #cv2.drawContours(imgc, contours, -1, (0,255,0), 3)
+    # for cidx in range(1, len(contours)):
+    #     cv2.drawContours(imgc, contours, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
+    # cv2.imshow("contours", imgc)
+    # cv2.waitKey(1)
 
     markers_list = []
     # polydtct_counters = []
