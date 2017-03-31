@@ -71,7 +71,7 @@ def detect_markers(img, marker_size, camK):
     width, height, _ = img.shape
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    edges = cv2.Canny(gray, 30, 100)
+    edges = cv2.Canny(gray, 50, 100)
     cv2.imshow("edges", edges)
     cv2.waitKey(1)
 
@@ -102,32 +102,43 @@ def detect_markers(img, marker_size, camK):
         approx_curve = cv2.approxPolyDP(contour, len(contour) * 0.05, True)
         if not (len(approx_curve) == 4 and cv2.isContourConvex(approx_curve)):
             continue
-        polydtct_counters.append(approx_curve)
-        ploydtct = ploydtct + 1
 
         sorted_curve = array(cv2.convexHull(approx_curve, clockwise=False),
                              dtype='float32')
+
+        polydtct_counters.append(cv2.convexHull(approx_curve, clockwise=False))
+        ploydtct = ploydtct + 1
+
+        # wrap image
         persp_transf = cv2.getPerspectiveTransform(sorted_curve, canonical_marker_coords)
         warped_img = cv2.warpPerspective(img, persp_transf, (WARPED_SIZE, WARPED_SIZE))
         warped_gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
 
-        _, warped_bin = cv2.threshold(warped_gray, 127, 255, cv2.THRESH_BINARY)
+        # get a good threshold for binary operation, 
+        # average of all pixels
+        wraped_gray_avg = cv2.mean(warped_gray)[0]
+
+        # binary image
+        _, warped_bin = cv2.threshold(warped_gray, wraped_gray_avg, 255, cv2.THRESH_BINARY)
+        
+        # reshape to one block per pixel 
         marker = warped_bin.reshape(
             [MARKER_SIZE, WARPED_SIZE / MARKER_SIZE, MARKER_SIZE, WARPED_SIZE / MARKER_SIZE]
         )
+        # binary reshaped image
         marker = marker.mean(axis=3).mean(axis=1)
         marker[marker < 127] = 0
         marker[marker >= 127] = 1
+
+        #cv2.imshow("bin", warped_bin)
+        #cv2.waitKey(50)
+        #cv2.imshow("warped_marker", rot90(warped_bin, k=0))
+        #cv2.waitKey(50)
 
         try:
             # rotate marker by checking which corner is white
             turn_number = validate_and_get_turn_number(marker)
             marker = rot90(marker, k=turn_number)
-
-            #cv2.imshow("bin", warped_bin)
-            #cv2.waitKey(10)
-            #cv2.imshow("warped_marker", rot90(warped_bin, k=turn_number))
-            #cv2.waitKey(10)
             
             # get id
             hamming_code = extract_hamming_code(marker)
