@@ -70,9 +70,10 @@ def validate_and_get_turn_number(marker):
 def detect_markers(img, marker_size, camK):
     width, height, _ = img.shape
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    [img_min, img_max, minLoc, maxLoc] = cv2.minMaxLoc(gray)
+    cv2.imshow("gray", gray)
 
     edges = cv2.Canny(gray, 50, 100)
-
     # cv2.imshow("edges", edges)
     # cv2.waitKey(1)
 
@@ -87,12 +88,12 @@ def detect_markers(img, marker_size, camK):
                                      (0, WARPED_SIZE - 1)),
                                      dtype='float32')
 
-    # imgc = img.copy()
-    # #cv2.drawContours(imgc, contours, -1, (0,255,0), 3)
-    # for cidx in range(1, len(contours)):
-    #     cv2.drawContours(imgc, contours, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
-    # cv2.imshow("contours", imgc)
-    # cv2.waitKey(1)
+    imgc = img.copy()
+    #cv2.drawContours(imgc, contours, -1, (0,255,0), 3)
+    for cidx in range(1, len(contours)):
+        cv2.drawContours(imgc, contours, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
+    cv2.imshow("contours", imgc)
+    cv2.waitKey(1)
 
     markers_list = []
     # polydtct_counters = []
@@ -101,6 +102,7 @@ def detect_markers(img, marker_size, camK):
         approx_curve = cv2.approxPolyDP(contour, len(contour) * 0.05, True)
         if not (len(approx_curve) == 4 and cv2.isContourConvex(approx_curve)):
             continue
+
         sorted_curve = array(cv2.convexHull(approx_curve, clockwise=False),
                              dtype='float32')
 
@@ -110,6 +112,12 @@ def detect_markers(img, marker_size, camK):
         persp_transf = cv2.getPerspectiveTransform(sorted_curve, canonical_marker_coords)
         warped_img = cv2.warpPerspective(img, persp_transf, (WARPED_SIZE, WARPED_SIZE))
         warped_gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
+
+        # check max and min pixel value in the wrapped image
+        # reject common unified color areas
+        [warp_min, warp_max, minLoc, maxLoc] = cv2.minMaxLoc(warped_gray)
+        if (warp_max-warp_min)/(img_max-img_min) < 0.3:
+            continue
 
         # get a good threshold for binary operation, 
         # average of all pixels
@@ -128,11 +136,29 @@ def detect_markers(img, marker_size, camK):
         # marker[marker >= 127] = 1
 
         # get better coding from sampling not reshaping
+        patch_size = WARPED_SIZE/MARKER_SIZE
+        patch_kenrel = np.ones((patch_size,patch_size), np.float32) / (patch_size*patch_size)
+        wraped_bin_filter = cv2.filter2D(warped_bin, -1, patch_kenrel, borderType=cv2.BORDER_REPLICATE)
+        kernel_accept_thresh = 0.4      # < 0.5
+
         marker = np.zeros((MARKER_SIZE,MARKER_SIZE))
+        read_marker_success = True
         for i in range(1,MARKER_SIZE):
             for j in range(1,MARKER_SIZE):
-                if warped_bin[(i+0.5)*WARPED_SIZE/MARKER_SIZE, (j+0.5)*WARPED_SIZE/MARKER_SIZE] > 0:
+
+                # # single pixel sampling 
+                # if warped_bin[(i+0.5)*patch_size, (j+0.5)*patch_size] > 0:
+                #     marker[i,j] = 1
+
+                # kernel sampling method
+                if wraped_bin_filter[(i+0.5)*patch_size, (j+0.5)*patch_size] > 256 * (1-kernel_accept_thresh):
                     marker[i,j] = 1
+                elif wraped_bin_filter[(i+0.5)*patch_size, (j+0.5)*patch_size] > 256 * kernel_accept_thresh:
+                    read_marker_success = False
+                    break
+
+        if not read_marker_success:
+            continue
 
         # cv2.imshow("bin", warped_bin)
         # cv2.waitKey(50)
