@@ -3,6 +3,8 @@ import cv2
 from numpy import array, rot90
 import numpy as np
 from math import fabs
+from random import randint
+
 
 from ar_markers.hamming.coding import decode, extract_hamming_code
 from ar_markers.hamming.marker import MARKER_SIZE, HammingMarker
@@ -69,14 +71,14 @@ def detect_markers(img, marker_size, camK):
     width, height, _ = img.shape
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    edges = cv2.Canny(gray, 10, 100)
-    #cv2.imshow("edges", edges)
-    #cv2.waitKey(1)
+    edges = cv2.Canny(gray, 30, 100)
+    cv2.imshow("edges", edges)
+    cv2.waitKey(1)
 
-    contours, hierarchy = cv2.findContours(edges.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[-2:]
+    contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[-2:]
 
     # We only keep the long enough contours
-    min_contour_length = min(width, height) / 50
+    min_contour_length = min(width, height) / 10
     contours = [contour for contour in contours if len(contour) > min_contour_length]
     canonical_marker_coords = array(((0, 0),
                                      (WARPED_SIZE - 1, 0),
@@ -84,11 +86,24 @@ def detect_markers(img, marker_size, camK):
                                      (0, WARPED_SIZE - 1)),
                                      dtype='float32')
 
+    imgc = img.copy()
+    #cv2.drawContours(imgc, contours, -1, (0,255,0), 3)
+    for cidx in range(1, len(contours)):
+        cv2.drawContours(imgc, contours, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
+    cv2.imshow("contours", imgc)
+    cv2.waitKey(1)
+
     markers_list = []
+
+    ploydtct = 0
+    polydtct_counters = []
+
     for contour in contours:
-        approx_curve = cv2.approxPolyDP(contour, len(contour) * 0.01, True)
+        approx_curve = cv2.approxPolyDP(contour, len(contour) * 0.05, True)
         if not (len(approx_curve) == 4 and cv2.isContourConvex(approx_curve)):
             continue
+        polydtct_counters.append(approx_curve)
+        ploydtct = ploydtct + 1
 
         sorted_curve = array(cv2.convexHull(approx_curve, clockwise=False),
                              dtype='float32')
@@ -136,4 +151,13 @@ def detect_markers(img, marker_size, camK):
 
         markers_list.append(detected_marker)
 
+
+    imgpoly = img.copy()
+    for cidx in range(1, len(polydtct_counters)):
+        cv2.drawContours(imgpoly, polydtct_counters, cidx, (randint(0,255), randint(0,255), randint(0,255)), 3)
+    cv2.imshow("contours poly", imgpoly)
+    cv2.waitKey(1)
+
+
+    print("ploydtct =", ploydtct)
     return markers_list
